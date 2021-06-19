@@ -17,7 +17,7 @@
 //==============================================================================
 /**
 */
-class StrightAudioProcessor  : public juce::AudioProcessor, private juce::Thread
+class StrightAudioProcessor  : public juce::AudioProcessor
 {
 public:
     //==============================================================================
@@ -60,9 +60,7 @@ public:
     void processMidi(juce::MidiBuffer& buffer);
     std::atomic<int>& getSampleCount() { return mSampleCount; }
     juce::String chosenPath {""};
-    
-    void doNotify() { notify(); }
-    
+        
     curve scanCurve;
     std::vector<std::vector<float>> scList;
     std::vector<std::vector<float>> scDefault{
@@ -98,6 +96,8 @@ public:
     float peak {0.};
     float playback {1.};
     float volume {0.};
+    util::slide<float> volSlide[2];
+    util::rampsmooth volSmooth[2];
     float masterVolume {0.};
     
     float mGrainsize {0};
@@ -106,18 +106,17 @@ public:
     float mVolume {0};
     
     float mSamplerate {44100.};
-private:
     juce::AudioFormatManager mFormatManager;
     std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
     juce::ReferenceCountedArray<ReferenceCountedBuffer> buffers;
     ReferenceCountedBuffer::Ptr currentBuffer { nullptr };
-        
+    std::atomic<bool> hasCopy {false};
+    juce::AudioBuffer<float> copy;
+private:
+
     std::atomic<bool> trigger {false};
     std::atomic<int> mSampleCount { 0 };
     
-    void run() override;
-    void checkForBuffersToFree();
-    void checkForPathToOpen();
 //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StrightAudioProcessor)
 };

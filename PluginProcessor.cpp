@@ -13,14 +13,15 @@ using namespace juce;
 //==============================================================================
 
 StrightAudioProcessor::StrightAudioProcessor() :
-    AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)), Thread("Background Thread")
+    AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true))
 {
     mFormatManager.registerBasicFormats();
-    startThread();
+    for(int i=0;i<2;i++){
+        volSmooth[i].setRamp(200, 200);
+    }
 }
 
 StrightAudioProcessor::~StrightAudioProcessor(){
-    stopThread(4000);
 }
 
 //==============================================================================
@@ -146,6 +147,7 @@ void StrightAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     for(const MidiMessageMetadata metadata: midiMessages){
         auto msg = metadata.getMessage();
         if(msg.isNoteOn()){
+            //retrigger?
             trigger = true;
             scanCurve.list_block(scList);
             pitchCurve.list_block(pcList);
@@ -162,6 +164,8 @@ void StrightAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     if(hasStream && !trigger){
         stream.clear();
         hasStream = false;
+        copy.clear();
+        hasCopy = false;
     }
 
     if(rcb==nullptr || !trigger){
@@ -173,39 +177,59 @@ void StrightAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     auto samps = buffer.getNumSamples();
     auto* sample = rcb->getAudioSampleBuffer();
     
+    if(!hasCopy){
+        //kopie des samples machen damit man während playback den
+        //buffer austauschen kann
+        //noch besser wäre es, hotzuswappen
+        //dann muss das playback einfach immer mit ptrs gemacht werden
+        //oder so
+        copy.makeCopyOf(*rcb->getAudioSampleBuffer());
+        hasCopy = true;
+    }
+    
+    int numStreams = 4;
     if(!hasStream){
-        for(int i=0;i<chans;i++){
-            stream.emplace_back(mSamplerate, sample, i, (float)i/2.);
+        std::vector<float> startPhases {0., 0.75, 0.5, 0.25};
+        for(int c=0;c<chans;c++){
+            for(int i=0;i<numStreams;i++){
+                stream.emplace_back(mSamplerate, &copy, c, startPhases[i]);
+            }
         }
         hasStream = true;
     }
 
     for(int i=0;i<chans;i++){
         auto *output = buffer.getWritePointer(i);
+        
         for(int j=0;j<samps;j++){
-            
             float phSamp = curvesPhasor[i](1.f/duration);
-            float cc = change[i](phSamp);
-            //if(change[i](phSamp) == -1){
-            if(cc == -1){
+            if(change[i](phSamp) == -1){
                 output[j] = 0;
                 trigger = false;
             }
             
             float gcSamp = util::looky(phSamp, grainCurve.arr, 1024);
-            float maGrainsize = util::modamt(grainsize/100.f, gcSamp, mGrainsize/100.f);
-            maGrainsize*= 100.f;
-            float maPeak = util::modamt(peak, gcSamp, mPeak/100.f);
+            float maGrainsize = util::modamt(grainsize/100.f, gcSamp, mGrainsize) * 100;
+            float maPeak = util::modamt(peak, gcSamp, mPeak);
             float maPlayback = util::scale(playback, -4.f, 4.f, 0.f, 1.f);
-            maPlayback = util::modamt(maPlayback, gcSamp, mPlayback/100.f);
+            maPlayback = util::modamt(maPlayback, gcSamp, mPlayback);
             maPlayback = util::scale(maPlayback, 0.f, 1.f, -4.f, 4.f);
-            
-            float vcSamp = util::looky(phSamp, volumeCurve.arr, 1024);
-            float maVolume = util::modamt(volume, vcSamp, mVolume/100.f);
-
             float pos = util::looky(phSamp, scanCurve.arr, 1024);
             
-            float c = stream[i](maGrainsize, maPeak, pos, maPlayback);
+            float c = 0;
+            for(int k=0;k<numStreams;k++){
+                int index = i*numStreams+k;
+                c += stream[index](maGrainsize, maPeak, pos, maPlayback);
+            }
+            
+            float vcSamp = util::looky(phSamp, volumeCurve.arr, 1024);
+            vcSamp = volSlide[i](vcSamp, 0, 20);
+            float maVolume = util::scale(volume, -70.f, 0.f, 0.f, 1.f);
+            maVolume = util::modamt(maVolume, vcSamp, mVolume);
+            maVolume = util::scale(maVolume, 0.f, 1.f, -70.f, 0.f, 0.5f);
+            maVolume = juce::Decibels::decibelsToGain(maVolume);
+            maVolume = volSmooth[i](maVolume);
+
             float mV = juce::Decibels::decibelsToGain(masterVolume);
             output[j] = c * mV * maVolume;
         }
@@ -213,7 +237,6 @@ void StrightAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 }
 
 juce::AudioBuffer<float>& StrightAudioProcessor::getWaveForm(){
-    //currently only works the second time dropping in a file
     if(currentBuffer != nullptr){
         auto sound = currentBuffer->getAudioSampleBuffer();
         if(sound){
@@ -254,47 +277,4 @@ void StrightAudioProcessor::setStateInformation (const void* data, int sizeInByt
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new StrightAudioProcessor();
-}
-
-//Thread stuff
-void StrightAudioProcessor::run(){
-    while(!threadShouldExit()){
-        checkForBuffersToFree();
-        checkForPathToOpen();
-        wait(500);
-    }
-}
-
-void StrightAudioProcessor::checkForBuffersToFree(){
-    for(auto i=buffers.size();--i>=0;){
-        ReferenceCountedBuffer::Ptr buffer (buffers.getUnchecked(i));
-        
-        if(buffer->getReferenceCount() == 2){
-            buffers.remove(i);
-        }
-    }
-}
-
-void StrightAudioProcessor::checkForPathToOpen(){
-    juce::String pathToOpen;
-    pathToOpen.swapWith(chosenPath);
-    
-    if(pathToOpen.isNotEmpty()){
-        juce::File file (pathToOpen);
-        std::unique_ptr<juce::AudioFormatReader> reader(mFormatManager.createReaderFor(file));
-        
-        if(reader.get() != nullptr){
-            if(reader->numChannels>2){
-                DBG("oops");
-            }else{
-                ReferenceCountedBuffer::Ptr newBuffer = new ReferenceCountedBuffer(file.getFileName(),
-                                                                                                 (int) reader->numChannels,
-                                                                                                 (int) reader->lengthInSamples);
-                              
-                reader->read(newBuffer->getAudioSampleBuffer(), 0, (int)reader->lengthInSamples, 0, true, true);
-                currentBuffer = newBuffer;
-                buffers.add(newBuffer);
-            }
-        }
-    }
 }

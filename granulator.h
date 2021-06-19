@@ -16,7 +16,7 @@ class source
 {
 public:
     source(float sr, juce::AudioBuffer<float> *a, int channel) :
-    sampleRate(sr),
+    sampleRate(sr), invSampleRate(1./sr),
     buffer(a->getReadPointer(channel)), nSamps(a->getNumSamples()) {}
     ~source() {};
     void setPosition(float pos)
@@ -27,8 +27,21 @@ public:
     float operator()(float rate)
     {
         float freq = sampleRate/(float)nSamps * rate;
-        float phase = phasor(freq, 1./sampleRate);
+        float phase = phasor(freq, invSampleRate);
         return util::looky(phase, buffer, nSamps);
+    }
+    float operator()(float rate, int buffersize)
+    {
+        float freq = sampleRate/(float)buffersize * rate;
+        float phase = phasor(freq, invSampleRate);
+        return util::looky(phase, buffer, buffersize);
+    }
+    float operator()(float rate, juce::AudioBuffer<float> *buf, int channel)
+    {
+        float freq = sampleRate/(float)buf->getNumSamples() * rate;
+        float phase = phasor(freq, invSampleRate);
+        float iPhase = (phase * (float)buf->getNumSamples());
+        return util::lpeek(buf->getReadPointer(channel), buf->getNumSamples(), iPhase);
     }
     void reset()
     {
@@ -37,6 +50,7 @@ public:
 private:
     util::genlibphasor<float> phasor;
     float sampleRate;
+    float invSampleRate;
     const float *buffer;
     int nSamps;
 };
@@ -82,7 +96,10 @@ public:
         float pOff
     ) :
         sampleRate(sr), invSampleRate(1./sr),
-        buffer(a->getReadPointer(channel)), bSize(a->getNumSamples()),
+        bptr(a),
+        buffer(a->getReadPointer(channel)),
+        bSize(a->getNumSamples()),
+        channel(channel),
         phaseOffset(pOff),
         w(sr, pOff),
         s(sr, a, channel)
@@ -93,6 +110,13 @@ public:
         sampleRate      = sr;
         invSampleRate   = 1./sr;
     }
+    void updateBuffer(juce::AudioBuffer<float> *a, int channel)
+    {
+        bptr = a;
+        buffer = a->getReadPointer(channel);
+        this->channel = channel;
+        bSize = a->getNumSamples();
+    }
     float operator()(float wFreq, float wPeak,
                      float pPos, float pRate)
     {
@@ -102,19 +126,17 @@ public:
             w.reset = false;
         }
         float sample = s(pRate);
+        //float sample = s(pRate, bptr->getNumSamples());
+        //float sample = s(pRate, bptr, channel);
         return window * sample;
     }
-    /*
-    void reset()
-    {
-        s.reset();
-    }
-     */
 private:
     float sampleRate;
     float invSampleRate;
+    juce::AudioBuffer<float> *bptr;
     const float *buffer;
     int bSize;
+    int channel;
     float phaseOffset;
     util::change<float> change;
     window w;

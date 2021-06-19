@@ -8,8 +8,8 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "PluginProcessor.h"
-#include "./look_and_feel/RSLColours.h"
+#include "../PluginProcessor.h"
+#include "../look_and_feel/RSLColours.h"
 
 //buggy piece of shit
 //fix sometime in se future

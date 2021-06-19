@@ -108,7 +108,6 @@ void WaveThumbnail::filesDropped (const juce::StringArray& files, int x, int y)
             auto myFile = std::make_unique<juce::File>(file);
             auto path = myFile->getFullPathName();
             processor.chosenPath.swapWith(path);
-            processor.doNotify();
             isInterested = false;
         }
     }

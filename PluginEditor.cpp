@@ -11,12 +11,17 @@
 
 //==============================================================================
 StrightAudioProcessorEditor::StrightAudioProcessorEditor (StrightAudioProcessor& p)
-: AudioProcessorEditor (&p), audioProcessor (p), mWaveThumbnail(p),
-scanCurve(RSL::curveCandycane[0]),
-grainCurve(RSL::curveCandycane[1]),
-pitchCurve(RSL::curveCandycane[2]),
-volumeCurve(RSL::curveCandycane[3])
+    : AudioProcessorEditor (&p),
+    Thread("Background Thread"),
+    audioProcessor (p),
+    mWaveThumbnail(p),
+    scanCurve(RSL::curveCandycane[0]),
+    grainCurve(RSL::curveCandycane[1]),
+    pitchCurve(RSL::curveCandycane[2]),
+    volumeCurve(RSL::curveCandycane[3])
 {
+    startThread();
+
     //setLookAndFeel(&defaultLookAndFeel);
     addAndMakeVisible(mWaveThumbnail);
     scanCurve.setVector(&(audioProcessor.scList));
@@ -104,7 +109,7 @@ volumeCurve(RSL::curveCandycane[3])
     
     sModVolume.setSliderStyle(juce::Slider::LinearBar);
     sModVolume.setTextBoxStyle(boxpos, true, 0, 0); sModVolume.setTextBoxIsEditable(false);
-    sModVolume.setRange(-100, 100, 1);sModVolume.setValue(100);
+    sModVolume.setRange(-100, 100, 1);sModVolume.setValue(0);
     sModVolume.setPopupDisplayEnabled(true, true, this);
     sModVolume.setTextValueSuffix(" Volume Mod");
     sModVolume.addListener(this);
@@ -117,6 +122,7 @@ volumeCurve(RSL::curveCandycane[3])
 StrightAudioProcessorEditor::~StrightAudioProcessorEditor()
 {
     setLookAndFeel(nullptr);
+    stopThread(4000);
 }
 
 //==============================================================================
@@ -179,5 +185,48 @@ void StrightAudioProcessorEditor::sliderValueChanged(juce::Slider* slider)
         audioProcessor.mPlayback = sModPlayback.getValue();
     }else if(slider == &sModVolume){
         audioProcessor.mVolume = sModVolume.getValue();
+    }
+}
+
+//Thread stuff
+void StrightAudioProcessorEditor::run(){
+    while(!threadShouldExit()){
+        checkForBuffersToFree();
+        checkForPathToOpen();
+        wait(500);
+    }
+}
+
+void StrightAudioProcessorEditor::checkForBuffersToFree(){
+    for(auto i=audioProcessor.buffers.size();--i>=0;){
+        ReferenceCountedBuffer::Ptr buffer (audioProcessor.buffers.getUnchecked(i));
+        
+        if(buffer->getReferenceCount() == 2){
+            audioProcessor.buffers.remove(i);
+        }
+    }
+}
+
+void StrightAudioProcessorEditor::checkForPathToOpen(){
+    juce::String pathToOpen;
+    pathToOpen.swapWith(audioProcessor.chosenPath);
+    
+    if(pathToOpen.isNotEmpty()){
+        juce::File file (pathToOpen);
+        std::unique_ptr<juce::AudioFormatReader> reader(audioProcessor.mFormatManager.createReaderFor(file));
+        
+        if(reader.get() != nullptr){
+            if(reader->numChannels>2){
+                DBG("oops");
+            }else{
+                ReferenceCountedBuffer::Ptr newBuffer = new ReferenceCountedBuffer(file.getFileName(),
+                                                                                                 (int) reader->numChannels,
+                                                                                                 (int) reader->lengthInSamples);
+                              
+                reader->read(newBuffer->getAudioSampleBuffer(), 0, (int)reader->lengthInSamples, 0, true, true);
+                audioProcessor.currentBuffer = newBuffer;
+                audioProcessor.buffers.add(newBuffer);
+            }
+        }
     }
 }

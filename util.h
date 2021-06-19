@@ -137,14 +137,16 @@ inline float looky(float phase, const float* buffer, int nSamps)
     return util::lpeek(buffer, nSamps, iPhase);
 }
  
+//all this T{} needed?
 template <typename T>
 T modamt(T value, T modulation, T modamt)
 {
     value = util::clamp(value, T{0}, T{1});
     modulation = util::clamp(modulation, T{0}, T{1});
-    modamt = util::clamp(modamt, T{-1}, T{1});
+    modamt = util::clamp(modamt, T{-100}, T{100});
+    modamt /= T{100};
     T modamt_pos = util::clamp(modamt, T{0}, T{1});
-    T val_inv = 1 - value;
+    T val_inv = T{1} - value;
     modamt_pos *= val_inv;
     modamt_pos *= modulation;
 

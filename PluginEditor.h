@@ -11,17 +11,16 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 #include "./look_and_feel/RSLColours.h"
-//#include "look_and_feel/default_look_and_feel.h"
-#include "WaveThumbnail.h"
+#include "look_and_feel/default_look_and_feel.h"
 #include "./EnvelopeEditor/EnvelopeEditor.h"
 #include "util.h"
-
+#include "ui/ui_all.h"
 
 //==============================================================================
 /**
 */
 class StrightAudioProcessorEditor : public juce::AudioProcessorEditor,
-private juce::Slider::Listener
+private juce::Slider::Listener, private juce::Thread
 {
 public:
     StrightAudioProcessorEditor (StrightAudioProcessor&);
@@ -53,6 +52,10 @@ private:
     juce::Slider sModPeak;
     juce::Slider sModPlayback;
     juce::Slider sModVolume;
+    
+    void run() override;
+    void checkForBuffersToFree();
+    void checkForPathToOpen();
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StrightAudioProcessorEditor)
 };
