@@ -13,7 +13,6 @@
 
 //buggy piece of shit
 //fix sometime in se future
-//==============================================================================
 class WaveThumbnail : public juce::Component, public juce::FileDragAndDropTarget
 {
 public:

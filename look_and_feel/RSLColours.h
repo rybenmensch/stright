@@ -25,6 +25,9 @@ inline std::vector<juce::Colour> curveCandycane{
 };
 inline juce::Colour curveGrid{0xFF595959};
 inline juce::Colour numBoxSlider{0xFF8092C5};
+//inline juce::Colour selectionBlue = juce::Colour::fromRGBA(0.506, 0.576, 0.776, 0.510);
+//inline juce::Colour selectionBlue = juce::Colour::fromRGBA(0.506, 0.576, 0.776, 1);
+inline juce::Colour selectionBlue{0x828193c6};
 
 //auto extracted colours
 inline juce::Colour c0 = juce::Colour::fromRGBA(0, 0, 0, 1.);

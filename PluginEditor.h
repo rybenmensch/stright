@@ -32,10 +32,12 @@ public:
 
 private:
     void sliderValueChanged(juce::Slider *slider) override;
+    void testCallback(juce::Component *c);
     StrightAudioProcessor& audioProcessor;
     //DefaultLookAndFeel defaultLookAndFeel;
     juce::AudioTransportSource transportSource;
     WaveThumbnail mWaveThumbnail;
+    RangeSelector waveSelector;
     EnvelopeEditor scanCurve;
     EnvelopeEditor grainCurve;
     EnvelopeEditor pitchCurve;
@@ -48,10 +50,10 @@ private:
     juce::Slider sVolume;
     juce::Slider sMasterVolume;
     
-    juce::Slider sModGrainsize;
-    juce::Slider sModPeak;
-    juce::Slider sModPlayback;
-    juce::Slider sModVolume;
+    ModamtNumbox sModGrainsize;
+    ModamtNumbox sModPeak;
+    ModamtNumbox sModPlayback;
+    ModamtNumbox sModVolume;
     
     void run() override;
     void checkForBuffersToFree();

@@ -9,8 +9,8 @@
 
 EnvelopeEditor::EnvelopeEditor(juce::Colour &c) : colour(c)
 {
-    setWantsKeyboardFocus(true);
-    setMouseClickGrabsKeyboardFocus(true);
+    //setWantsKeyboardFocus(true);
+    //setMouseClickGrabsKeyboardFocus(true);
     setRepaintsOnMouseActivity(true);
     setInterceptsMouseClicks(true, true);
 }

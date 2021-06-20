@@ -50,22 +50,20 @@ public:
 private:
 };
 
-inline bool comparePoints(std::unique_ptr<EnvelopePoint> &p1, std::unique_ptr<EnvelopePoint> &p2)
-{
-    return p1->x<p2->x;
-}
-
 class EnvelopePointContainer
 {
 public:
+    using epPtr = std::unique_ptr<EnvelopePoint>;
     EnvelopePointContainer() {};
     ~EnvelopePointContainer() {};
     EnvelopePoint &insert(const juce::Point<float> &p)
     {
         points.emplace_back(std::make_unique<EnvelopePoint>(p));
         last = &*points.back(); //what the fuck?
-        std::sort(points.begin(), points.end(), comparePoints);
 
+        //starting to like lambdas!
+        std::sort(points.begin(), points.end(), [] (epPtr &p1, epPtr &p2)
+                  ->bool{return p1->x<p2->x;});
         return *(points.back());
     }
     EnvelopePoint &operator[](int i)
@@ -77,7 +75,7 @@ public:
         points.erase(points.begin()+i);
     }
     
-    std::vector<std::unique_ptr<EnvelopePoint>>::size_type
+    std::vector<epPtr>::size_type
     size()
     {
         return points.size();
@@ -104,7 +102,7 @@ public:
     }
     EnvelopePoint *last;
 private:
-    std::vector<std::unique_ptr<EnvelopePoint>> points;
+    std::vector<epPtr> points;
     std::vector<std::vector<float>> curvePoints;
 };
 

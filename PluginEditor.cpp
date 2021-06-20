@@ -15,6 +15,7 @@ StrightAudioProcessorEditor::StrightAudioProcessorEditor (StrightAudioProcessor&
     Thread("Background Thread"),
     audioProcessor (p),
     mWaveThumbnail(p),
+    waveSelector(RSL::selectionBlue),
     scanCurve(RSL::curveCandycane[0]),
     grainCurve(RSL::curveCandycane[1]),
     pitchCurve(RSL::curveCandycane[2]),
@@ -24,6 +25,29 @@ StrightAudioProcessorEditor::StrightAudioProcessorEditor (StrightAudioProcessor&
 
     //setLookAndFeel(&defaultLookAndFeel);
     addAndMakeVisible(mWaveThumbnail);
+    //addAndMakeVisible(waveSelector);
+    waveSelector.onValueChange = [this](){
+        testCallback(&waveSelector);
+    };
+    
+    addAndMakeVisible(sModGrainsize);
+    sModGrainsize.onValueChanged = [this](){
+        testCallback(&sModGrainsize);
+    };
+    addAndMakeVisible(sModPeak);
+    sModPeak.onValueChanged = [this](){
+        testCallback(&sModPeak);
+    };
+    addAndMakeVisible(sModPlayback);
+    sModPlayback.onValueChanged = [this](){
+        testCallback(&sModPlayback);
+    };
+    addAndMakeVisible(sModVolume);
+    sModVolume.onValueChanged = [this](){
+        testCallback(&sModVolume);
+    };
+    
+    
     scanCurve.setVector(&(audioProcessor.scList));
     addAndMakeVisible(scanCurve);
     grainCurve.setVector(&(audioProcessor.gcList));
@@ -82,40 +106,6 @@ StrightAudioProcessorEditor::StrightAudioProcessorEditor (StrightAudioProcessor&
     sMasterVolume.setTextValueSuffix(" Master Volume");
     sMasterVolume.addListener(this);
     addAndMakeVisible(sMasterVolume);
-    
-    sModGrainsize.setSliderStyle(juce::Slider::LinearBar);
-    sModGrainsize.setTextBoxStyle(boxpos, true, 0, 0); sModGrainsize.setTextBoxIsEditable(false);
-    sModGrainsize.setRange(-100, 100, 1);sModGrainsize.setValue(0);
-    sModGrainsize.setPopupDisplayEnabled(true, true, this);
-    sModGrainsize.setTextValueSuffix(" Grainsize Mod");
-    sModGrainsize.addListener(this);
-    addAndMakeVisible(sModGrainsize);
-    
-    sModPeak.setSliderStyle(juce::Slider::LinearBar);
-    sModPeak.setTextBoxStyle(boxpos, true, 0, 0); sModPeak.setTextBoxIsEditable(false);
-    sModPeak.setRange(-100, 100, 1);sModPeak.setValue(0);
-    sModPeak.setPopupDisplayEnabled(true, true, this);
-    sModPeak.setTextValueSuffix(" Peak Mod");
-    sModPeak.addListener(this);
-    addAndMakeVisible(sModPeak);
-    
-    sModPlayback.setSliderStyle(juce::Slider::LinearBar);
-    sModPlayback.setTextBoxStyle(boxpos, true, 0, 0); sModPlayback.setTextBoxIsEditable(false);
-    sModPlayback.setRange(-100, 100, 1);sModPlayback.setValue(0);
-    sModPlayback.setPopupDisplayEnabled(true, true, this);
-    sModPlayback.setTextValueSuffix(" Playback Mod");
-    sModPlayback.addListener(this);
-    addAndMakeVisible(sModPlayback);
-    
-    sModVolume.setSliderStyle(juce::Slider::LinearBar);
-    sModVolume.setTextBoxStyle(boxpos, true, 0, 0); sModVolume.setTextBoxIsEditable(false);
-    sModVolume.setRange(-100, 100, 1);sModVolume.setValue(0);
-    sModVolume.setPopupDisplayEnabled(true, true, this);
-    sModVolume.setTextValueSuffix(" Volume Mod");
-    sModVolume.addListener(this);
-    addAndMakeVisible(sModVolume);
-    
-    
     setSize (920, 620);
 }
 
@@ -145,6 +135,7 @@ void StrightAudioProcessorEditor::paint (juce::Graphics& g)
 void StrightAudioProcessorEditor::resized()
 {
     mWaveThumbnail.setBounds(233., 5., 675., 115.);
+    waveSelector.setBounds(233., 5., 675., 115.);
     scanCurve.setBounds(5, 163, 200, 118);
     grainCurve.setBounds(233, 163, 200, 118);
     pitchCurve.setBounds(461, 163, 200, 118);
@@ -177,13 +168,20 @@ void StrightAudioProcessorEditor::sliderValueChanged(juce::Slider* slider)
         audioProcessor.volume = sVolume.getValue();
     }else if(slider == &sMasterVolume){
         audioProcessor.masterVolume = sMasterVolume.getValue();
-    }else if(slider == &sModGrainsize){
+    }
+}
+
+void StrightAudioProcessorEditor::testCallback(juce::Component *c)
+{
+    if(c==&waveSelector){
+        auto [start, end] = waveSelector.getValues();
+    }else if(c == &sModGrainsize){
         audioProcessor.mGrainsize = sModGrainsize.getValue();
-    }else if(slider == &sModPeak){
+    }else if(c == &sModPeak){
         audioProcessor.mPeak = sModPeak.getValue();
-    }else if(slider == &sModPlayback){
+    }else if(c == &sModPlayback){
         audioProcessor.mPlayback = sModPlayback.getValue();
-    }else if(slider == &sModVolume){
+    }else if(c == &sModVolume){
         audioProcessor.mVolume = sModVolume.getValue();
     }
 }
