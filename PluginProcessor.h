@@ -85,6 +85,19 @@ public:
         {1., 1., 0.},
         {1., 1000., 0.}
     };
+    curve fmCurve;
+    std::vector<std::vector<float>> fmcList;
+    std::vector<std::vector<float>> fmcDefault{
+        {1., 1., 0.},
+        {1., 1000., 0.}
+    };
+    curve filterCurve;
+    std::vector<std::vector<float>> fcList;
+    std::vector<std::vector<float>> fcDefault{
+        {1., 1., 0.},
+        {1., 1000., 0.}
+    };
+    
     util::genlibphasor<float> curvesPhasor[2];
     util::change<float> change[2];
     

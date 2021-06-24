@@ -19,43 +19,47 @@ StrightAudioProcessorEditor::StrightAudioProcessorEditor (StrightAudioProcessor&
     scanCurve(RSL::curveCandycane[0]),
     grainCurve(RSL::curveCandycane[1]),
     pitchCurve(RSL::curveCandycane[2]),
-    volumeCurve(RSL::curveCandycane[3])
+    volumeCurve(RSL::curveCandycane[3]),
+    fmCurve(RSL::curveCandycane[4]),
+    filterCurve(RSL::curveCandycane[5]),
+    sModVelocity(RSL::black, RSL::selectionBlue, RSL::white, "%", 0.f, 100.f, 50.f, 0)
 {
     startThread();
-
+    juce::Font labelfont {11.5, juce::Font::bold};
+    generalHeader.set("GENERAL", RSL::white, labelfont); addAndMakeVisible(generalHeader);
+    scanHeader.set("SCAN", RSL::white, labelfont); addAndMakeVisible(scanHeader);
+    grainHeader.set("GRAIN", RSL::white, labelfont); addAndMakeVisible(grainHeader);
+    pitchHeader.set("PITCH", RSL::white, labelfont); addAndMakeVisible(pitchHeader);
+    volumeHeader.set("VOLUME", RSL::white, labelfont); addAndMakeVisible(volumeHeader);
+    /*
+    fmHeader.set("FM", RSL::white, labelfont); addAndMakeVisible(fmHeader);
+    filterHeader.set("FILTER", RSL::white, labelfont); addAndMakeVisible(filterHeader);
+    */
+     
+    scanCurve.setVector(&(audioProcessor.scList)); addAndMakeVisible(scanCurve);
+    grainCurve.setVector(&(audioProcessor.gcList)); addAndMakeVisible(grainCurve);
+    pitchCurve.setVector(&(audioProcessor.pcList)); addAndMakeVisible(pitchCurve);
+    volumeCurve.setVector(&(audioProcessor.vcList)); addAndMakeVisible(volumeCurve);
+    /*
+    fmCurve.setVector(&(audioProcessor.fmcList)); addAndMakeVisible(fmCurve);
+    filterCurve.setVector(&(audioProcessor.fcList)); addAndMakeVisible(filterCurve);
+    */
+    for(int i=0;i<mlPos.size();i++){
+        ml.emplace_back(std::make_unique<RSLModLine>());
+        ml[i]->rect = &(mlPos[i]);
+        addAndMakeVisible(*ml[i]);
+    }
+    
     //setLookAndFeel(&defaultLookAndFeel);
+    //mWavethumbnail sollte auch ein lambda haben
     addAndMakeVisible(mWaveThumbnail);
-    //addAndMakeVisible(waveSelector);
-    waveSelector.onValueChange = [this](){
-        testCallback(&waveSelector);
-    };
+    //ADD_VISIBLE_LAMBDA(waveSelector)
+    ADD_VISIBLE_LAMBDA(sModGrainsize);
+    ADD_VISIBLE_LAMBDA(sModPeak);
+    ADD_VISIBLE_LAMBDA(sModPlayback);
+    ADD_VISIBLE_LAMBDA(sModVolume);
+    ADD_VISIBLE_LAMBDA(sModVelocity);
     
-    addAndMakeVisible(sModGrainsize);
-    sModGrainsize.onValueChanged = [this](){
-        testCallback(&sModGrainsize);
-    };
-    addAndMakeVisible(sModPeak);
-    sModPeak.onValueChanged = [this](){
-        testCallback(&sModPeak);
-    };
-    addAndMakeVisible(sModPlayback);
-    sModPlayback.onValueChanged = [this](){
-        testCallback(&sModPlayback);
-    };
-    addAndMakeVisible(sModVolume);
-    sModVolume.onValueChanged = [this](){
-        testCallback(&sModVolume);
-    };
-    
-    
-    scanCurve.setVector(&(audioProcessor.scList));
-    addAndMakeVisible(scanCurve);
-    grainCurve.setVector(&(audioProcessor.gcList));
-    addAndMakeVisible(grainCurve);
-    pitchCurve.setVector(&(audioProcessor.pcList));
-    addAndMakeVisible(pitchCurve);
-    volumeCurve.setVector(&(audioProcessor.vcList));
-    addAndMakeVisible(volumeCurve);
     auto boxpos = juce::Slider::TextEntryBoxPosition::NoTextBox;
     auto style = juce::Slider::RotaryVerticalDrag;
     
@@ -120,26 +124,33 @@ void StrightAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll(RSL::black);
     g.setColour(RSL::white);
-    g.setFont(11.5f);
-    //class machen, die automatisch anhand grösse des
-    //texts die linie zeichnet
-    g.drawText("SCAN", 5, 130, 39, 20, juce::Justification::left);
-    g.drawText("GRAIN", 233, 130, 61, 20., juce::Justification::left);
-    g.drawText("PITCH", 461, 130, 147, 20., juce::Justification::left);
-    g.drawText("VOLUME", 689, 130, 147, 20, juce::Justification::left);
-    
     g.setColour(juce::Colour::fromFloatRGBA(0.137, 0.137, 0.13, 0.600));
     g.fillRect(461, 130, 219, 234.5);
 }
 
 void StrightAudioProcessorEditor::resized()
 {
+    generalHeader.setBounds(5, 5, 200, 20);
+    scanHeader.setBounds(5, 130, 200, 20);
+    grainHeader.setBounds(233, 130, 200, 20);
+    pitchHeader.setBounds(461, 130, 200, 20);
+    volumeHeader.setBounds(689, 130, 200, 20);
+    fmHeader.setBounds(5, 387, 200, 20);
+    filterHeader.setBounds(233, 387, 200, 20);
+    
     mWaveThumbnail.setBounds(233., 5., 675., 115.);
     waveSelector.setBounds(233., 5., 675., 115.);
     scanCurve.setBounds(5, 163, 200, 118);
     grainCurve.setBounds(233, 163, 200, 118);
     pitchCurve.setBounds(461, 163, 200, 118);
     volumeCurve.setBounds(689, 163, 200, 118);
+    /*
+    fmCurve.setBounds(5., 411., 200., 118.);
+    filterCurve.setBounds(233., 411., 200., 118.);
+    */
+    for(auto &l : ml){
+        l->setBounds(*(l->rect));
+    }
     
     sDuration.setBounds(5., 316., 41., 48.);
     sGrainsize.setBounds(233., 316., 40., 48.);
@@ -152,6 +163,7 @@ void StrightAudioProcessorEditor::resized()
     sModPeak.setBounds(275., 287., 41., 15.);
     sModPlayback.setBounds(316., 287., 41., 15.);
     sModVolume.setBounds(689., 287., 41., 15.);
+    sModVelocity.setBounds(741., 340., 41., 15.);
 }
 
 void StrightAudioProcessorEditor::sliderValueChanged(juce::Slider* slider)
@@ -174,7 +186,7 @@ void StrightAudioProcessorEditor::sliderValueChanged(juce::Slider* slider)
 void StrightAudioProcessorEditor::testCallback(juce::Component *c)
 {
     if(c==&waveSelector){
-        auto [start, end] = waveSelector.getValues();
+        //auto [start, end] = waveSelector.getValues();
     }else if(c == &sModGrainsize){
         audioProcessor.mGrainsize = sModGrainsize.getValue();
     }else if(c == &sModPeak){
@@ -183,6 +195,8 @@ void StrightAudioProcessorEditor::testCallback(juce::Component *c)
         audioProcessor.mPlayback = sModPlayback.getValue();
     }else if(c == &sModVolume){
         audioProcessor.mVolume = sModVolume.getValue();
+    }else if(c== &sModVelocity){
+        //
     }
 }
 

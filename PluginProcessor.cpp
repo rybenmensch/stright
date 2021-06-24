@@ -137,6 +137,11 @@ void StrightAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     pcList = pcDefault;
     volumeCurve.setSamplerate(sampleRate);
     vcList = vcDefault;
+    fmCurve.setSamplerate(sampleRate);
+    fmcList = fmcDefault;
+    filterCurve.setSamplerate(sampleRate);
+    fcList = fcDefault;
+
 }
 
 void StrightAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
@@ -174,8 +179,9 @@ void StrightAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     }
 
     auto chans = buffer.getNumChannels();
+    auto bchans = rcb->getAudioSampleBuffer()->getNumChannels();
     auto samps = buffer.getNumSamples();
-    auto* sample = rcb->getAudioSampleBuffer();
+    //auto* sample = rcb->getAudioSampleBuffer();
     
     if(!hasCopy){
         //kopie des samples machen damit man während playback den
@@ -190,9 +196,13 @@ void StrightAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     int numStreams = 4;
     if(!hasStream){
         std::vector<float> startPhases {0., 0.75, 0.5, 0.25};
-        for(int c=0;c<chans;c++){
+        int mod = bchans;
+        //fake stereo
+        if(bchans == 1)  bchans = 2;
+        for(int c=0;c<bchans;c++){
             for(int i=0;i<numStreams;i++){
-                stream.emplace_back(mSamplerate, &copy, c, startPhases[i]);
+                stream.emplace_back(mSamplerate, &copy, c%mod
+                                    , startPhases[i]);
             }
         }
         hasStream = true;
@@ -209,7 +219,8 @@ void StrightAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
             }
             
             float gcSamp = util::looky(phSamp, grainCurve.arr, 1024);
-            float maGrainsize = util::modamt(grainsize/100.f, gcSamp, mGrainsize) * 100;
+            float maGrainsize = util::modamt(grainsize/100.f, gcSamp, mGrainsize);
+            maGrainsize = util::scale(maGrainsize, 0.f, 1.f, 1.f, 100.f, 4.f);
             float maPeak = util::modamt(peak, gcSamp, mPeak);
             float maPlayback = util::scale(playback, -4.f, 4.f, 0.f, 1.f);
             maPlayback = util::modamt(maPlayback, gcSamp, mPlayback);

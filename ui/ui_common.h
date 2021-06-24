@@ -87,7 +87,8 @@ public:
         else{
             endX = startX = memoryX = x;
         }
-        onValueChange();
+        if(onValueChanged)
+            onValueChanged();
         repaint();
     }
 
@@ -127,7 +128,8 @@ public:
                 endX = util::clamp(x, 0.f, width);
             }
         }
-        onValueChange();
+        if(onValueChanged)
+            onValueChanged();
         repaint();
     }
     
@@ -145,7 +147,7 @@ public:
     {
         return std::make_tuple(getStart(), getEnd());
     }
-    std::function<void()> onValueChange;
+    std::function<void()> onValueChanged;
 
 private:
     float getStart()
@@ -174,4 +176,74 @@ private:
     float mX        {0.};
     float mY        {0.};
 };
+
+class RSLHeader : public Component
+{
+public:
+    RSLHeader() {};
+    ~RSLHeader() {};
+    void set(juce::String s, juce::Colour &c, juce::Font &f)
+    {
+        text = s;
+        colour = c;
+        font = f;
+        textsize = font.getStringWidthFloat(text);
+    }
+    void paint(juce::Graphics& g) override
+    {
+        width = getWidth();
+        height = getHeight();
+        g.setColour(colour);
+        g.setFont(font);
+        g.drawFittedText(text, getLocalBounds(), juce::Justification::left, 1);
+        g.drawLine(textsize+5, height/2.+1, width, height/2.+1);
+    }
+private:
+    float textsize;
+    juce::String text;
+    juce::Colour colour;
+    juce::Font font;
+    float width;
+    float height;
+};
+
+class RSLModLine : public juce::Component
+{
+public:
+    RSLModLine(juce::Colour &c, juce::Justification j) :
+    colour(c), just(j) {}
+    RSLModLine(juce::Colour &c) : RSLModLine(c, juce::Justification::centred) {}
+    RSLModLine() : RSLModLine(RSL::white, juce::Justification::centred) {}
+    void paint(juce::Graphics& g) override
+    {
+        width = getWidth();
+        height = getHeight();
+        g.setColour(colour);
+        if(width<height){   //vertical drawing
+            if(just == juce::Justification::centred){
+                g.drawLine(width/2.f, 0.f, width/2.f, height);
+            }else if(just == juce::Justification::left){
+                g.drawLine(0.f, 0.f, 0.f, height);
+            }else if(just == juce::Justification::right){
+                g.drawLine(width, 0.f, width, height);
+            }
+        }else{
+            if(just == juce::Justification::centred){
+                g.drawLine(0.f, height/2.f, width, height/2.f);
+            }else if(just == juce::Justification::left){
+                g.drawLine(0.f, 0.f, width, 0.f);
+            }else if(just == juce::Justification::right){
+                g.drawLine(0.f, height, width, height);
+            }
+        }
+    }
+    ~RSLModLine() {};
+    juce::Rectangle<int> *rect;
+private:
+    juce::Colour colour;
+    juce::Justification just;
+    float width;
+    float height;
+};
+
 #endif /* ui_common_h */

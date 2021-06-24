@@ -62,8 +62,9 @@ public:
         last = &*points.back(); //what the fuck?
 
         //starting to like lambdas!
-        std::sort(points.begin(), points.end(), [] (epPtr &p1, epPtr &p2)
-                  ->bool{return p1->x<p2->x;});
+        std::sort(points.begin(), points.end(),
+                  [] (epPtr &p1, epPtr &p2) {
+                    return p1->x<p2->x;});
         return *(points.back());
     }
     EnvelopePoint &operator[](int i)
@@ -111,7 +112,7 @@ class EnvelopeEditor : public Component
 public:
     EnvelopeEditor(juce::Colour &c);
     ~EnvelopeEditor();
-    
+
     void paint(juce::Graphics&) override;
     void mouseDown(const MouseEvent&) override;
     void mouseUp(const MouseEvent&) override;

@@ -16,6 +16,12 @@
 #include "util.h"
 #include "ui/ui_all.h"
 
+#define ADD_VISIBLE_LAMBDA(arg)\
+addAndMakeVisible(arg);\
+arg.onValueChanged = [this](){\
+    testCallback(&arg);\
+};
+
 //==============================================================================
 /**
 */
@@ -25,8 +31,6 @@ private juce::Slider::Listener, private juce::Thread
 public:
     StrightAudioProcessorEditor (StrightAudioProcessor&);
     ~StrightAudioProcessorEditor() override;
-
-    //==============================================================================
     void paint (juce::Graphics&) override;
     void resized() override;
 
@@ -42,6 +46,8 @@ private:
     EnvelopeEditor grainCurve;
     EnvelopeEditor pitchCurve;
     EnvelopeEditor volumeCurve;
+    EnvelopeEditor fmCurve;
+    EnvelopeEditor filterCurve;
     
     juce::Slider sDuration;
     juce::Slider sGrainsize;
@@ -54,6 +60,42 @@ private:
     ModamtNumbox sModPeak;
     ModamtNumbox sModPlayback;
     ModamtNumbox sModVolume;
+    ModamtNumbox sModVelocity;
+    
+    ModamtNumbox sStart;
+    ModamtNumbox sEnd;
+    ModamtNumbox sKey;
+    
+    RSLHeader generalHeader;
+    RSLHeader scanHeader;
+    RSLHeader grainHeader;
+    RSLHeader pitchHeader;
+    RSLHeader volumeHeader;
+    RSLHeader fmHeader;
+    RSLHeader filterHeader;
+    
+    std::vector<std::unique_ptr<RSLModLine>> ml;
+    std::vector<juce::Rectangle<int>> mlPos = {
+        /*
+        {21, 526, 8, 9},
+        {21, 550, 8, 9},
+        {181, 526, 8, 9},
+        {181, 550, 8, 9},
+        {249, 526, 8, 9},
+        {249, 550, 8, 9},
+        {291, 526, 8, 9},
+        {291, 550, 8, 9},
+        */
+        {249, 278, 8, 9},
+        {249, 302, 8, 9},
+        {291, 278, 8, 9},
+        {291, 302, 8, 9},
+        {332, 278, 8, 9},
+        {332, 302, 8, 9},
+        {705, 278, 8, 9},
+        {705, 302, 8, 9},
+        {357, 335, 23, 15}
+    };
     
     void run() override;
     void checkForBuffersToFree();

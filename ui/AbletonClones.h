@@ -4,73 +4,111 @@
 #include "../util.h"
 #include "../look_and_feel/RSLColours.h"
 
-//border colour
 class ModamtNumbox : public Component
 {
 public:
-    ModamtNumbox() : ModamtNumbox(RSL::black, RSL::selectionBlue,
-                                  "%",
-                                  -100., 100., 0.) {}
-    ModamtNumbox(juce::Colour bgC, juce::Colour fC,
+    //polarity 0=uni, 1=bipolar
+    ModamtNumbox(juce::Colour bgC,
+                 juce::Colour fC,
+                 juce::Colour bC,
                  juce::String u,
-                 float minV, float maxV, float resetV) :
+                 float minV, float maxV, float resetV,
+                 int p) :
     onValueChanged(nullptr),
-    bgColour(bgC), fillColour(fC),
+    bgColour(bgC), fillColour(fC), borderColour(bC),
     unit(u),
-    min(minV), max(maxV), resetVal(resetV), val(resetV)
+    min(minV), max(maxV), resetVal(resetV), val(resetV),
+    polarity(p)
     {
         setRepaintsOnMouseActivity(true);
         setWantsKeyboardFocus(true);
         setMouseClickGrabsKeyboardFocus(true);
         incStep = (max - min)/128.f;
-
     }
+    ModamtNumbox() : ModamtNumbox(RSL::black,
+                                  RSL::selectionBlue,
+                                  juce::Colours::transparentBlack,
+                                  "%",
+                                  -100., 100., 0., 1) {}
     ~ModamtNumbox() {}
     std::function<void()> onValueChanged;
-    float getValue()
-    {
-        return val;
-    }
+    float getValue() { return val; }
 private:
     void paint(juce::Graphics& g) override
     {
+        /*
+         x = borderFocus     //wird mit focus sichtbar
+         o = border         //kann unsichtbar sein
+         _ = drawZone/fillColour
+         xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+         xoooooooooooooooooooooooooooooooooooooox
+         xo____________________________________ox
+         xo____________________________________ox
+         xo____________________________________ox
+         xoooooooooooooooooooooooooooooooooooooox
+         xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+         ^^wow huere schön!
+         */
         width = getWidth();
         height = getHeight();
-        auto middle = width/2.f;
-        float off = 1.f;
+        float offset = 1.f;
+        juce::Rectangle<float> borderFocus {width, height};
+        
         if(hasFocus){
             g.setColour(RSL::white);
-            g.fillRect(0.f, 0.f, width, height);
-            g.setColour(RSL::black);
-            g.fillRect(off, off, width-2*off, height-2*off);
-        }else{
-            g.fillAll(RSL::black);
+            g.drawRect(borderFocus);
         }
+        
+        auto border = borderFocus.reduced(offset);
+        g.setColour(borderColour);
+        g.drawRect(border);
+
+        auto drawZone = border.reduced(offset);
+        g.setColour(bgColour);
+        g.fillRect(drawZone);
         
         if(!input){
             g.setColour(RSL::selectionBlue);
-            auto sVal = util::scale(val, min, max, 2*off, width-2*off);
-            if(val>0.f){
-                g.fillRect(middle, 2*off, sVal-middle, height-4*off);
-            }else if(val<0.f){
-                g.fillRect(sVal, 2*off, middle-sVal, height-4*off);
+            g.setColour(fillColour);
+            auto dWidth = util::scale(val, min, max, 0.f, drawZone.getWidth());
+			
+            if(polarity == 0){
+                auto drawBar = drawZone.withWidth(dWidth);
+                g.fillRect(drawBar);
+            }else if (polarity == 1){
+				auto mVal = (min+max)/2.f;
+                auto mCoord = drawZone.getWidth()/2.f;
+                if(val>=mVal){
+					auto dWidth = util::scale(val, mVal, max, 0.f, drawZone.getWidth())/2.f;
+					auto drawBar = drawZone.withX(mCoord).withWidth(dWidth);
+                    g.fillRect(drawBar);
+					//g.fillRect(mCoord, drawZone.getY(), dWidth, drawZone.getHeight());
+                }else{
+                }
             }
         }
-
+        
         g.setColour(RSL::white);
         g.setFont(9.5f);
         char buffer[100];
+        //maybe juce::String has formatting options?
         if(input){
-            sprintf(buffer,"%s", str.c_str());
-        }else
-            sprintf(buffer ,"%.1f %%", val);
+            sprintf(buffer,"%s", inputStr.c_str());
+        }else{
+            float ipart;
+            if(std::modf(val, &ipart))
+               sprintf(buffer ,"%.1f %%", val);
+            else
+			   sprintf(buffer, "%.0f %%", ipart);
+            
+        }
         g.drawFittedText(juce::String(buffer), getLocalBounds(), juce::Justification::centred, 1);
     }
     
     void modifyVal(float mult, bool isPrecise)
     {
         float inc = incStep;
-        inc /= isPrecise?2.:1.;
+        inc /= isPrecise?4.:1.;
         inc *= mult;
         val += inc;
         val = util::clamp(val, min, max);
@@ -97,18 +135,16 @@ private:
         auto oX = aX - e.position.getX();
         auto oY = aY - e.position.getY();
         auto p = juce::Point(oX+mX, oY+mY);
-        Desktop::getInstance().getMainMouseSource().setScreenPosition(p);
+        Desktop::getInstance().getMainMouseSource().setScreenPosition(p.toFloat());
     }
     
     void mouseDrag(const MouseEvent& e) override
     {
-        //schauen wieviel delta und dann skalieren?
         auto y = e.position.getY();
         auto deltaY = y - previousY;
         auto isPrecise = e.mods.isShiftDown();
         if(deltaY){
-            auto sign = deltaY<0?1.:-1.;
-            modifyVal(sign, isPrecise);
+            modifyVal(deltaY*-1., isPrecise);
         }
         repaint();
         previousY = y;
@@ -133,18 +169,18 @@ private:
             modifyVal(1., isPrecise);
         
         if(!input){
-            str.clear();
+            inputStr.clear();
         }
 
         //0-9 , - , . , backspace
         if((k>='-' && k<='9' && k!= '/') || k==juce::KeyPress::backspaceKey){
             input = true;
-            if(k==juce::KeyPress::backspaceKey&& str.length())
-                str.pop_back();
+            if(k==juce::KeyPress::backspaceKey&&inputStr.length())
+                inputStr.pop_back();
             else
-                str+=k;
+                inputStr+=k;
 
-            val = std::atof(str.c_str());
+            val = std::atof(inputStr.c_str());
         }
         
         if(k == juce::KeyPress::returnKey){
@@ -175,6 +211,7 @@ private:
     float height {0.};
     juce::Colour bgColour;
     juce::Colour fillColour;
+    juce::Colour borderColour;
     juce::String unit;
     float min;
     float max;
@@ -185,5 +222,14 @@ private:
     float mY        {0.};
     bool hasFocus {false};
     bool input {false};
-    std::string str;
+    std::string inputStr;
+    int polarity;
+};
+
+class LiveDial
+{
+public:
+    LiveDial() {};
+    ~LiveDial() {};
+private:
 };
